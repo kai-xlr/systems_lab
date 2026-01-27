@@ -1,0 +1,52 @@
+# Rust build artifacts
+/target/
+**/target/
+
+# Cargo lock files (optional - comment out if you want to commit them)
+# Cargo.lock
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor backup files
+*.bak
+*.backup
+*.tmp
+
+# Debug and profiling files
+*.profraw
+*.prof
+
+# Rust analyzer files
+.rust-analyzer/
+cargo.lock
+
+# Local development files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.old
+*.orig
