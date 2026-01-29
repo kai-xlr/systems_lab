@@ -34,6 +34,33 @@ fn do_work_with_box(iteration: usize) {
 
     std::hint::black_box(result);
 }
+
+fn do_work_with_lock(iteration: usize) {
+    use std::sync::Mutex;
+    static DUMMY_MUTEX: Mutex<()> = Mutex::new(());
+
+    let _guard = DUMMY_MUTEX.lock().unwrap(); // Add lock overhead
+
+    let mut result = iteration * 2;
+    result = result.wrapping_add(1);
+    std::hint::black_box(result);
+
+    drop(_guard);
+}
+
+fn do_work_with_branch(iteration: usize) {
+    let mut result = iteration * 2;
+    result = result.wrapping_add(1);
+
+    // ADD ONE BRANCH HERE - 50/50 chance
+    if iteration % 2 == 0 {
+        result = result.wrapping_add(1); // Branch taken
+    } else {
+        result = result.wrapping_sub(1); // Branch not taken
+    }
+
+    std::hint::black_box(result);
+}
 // Worker function for each thread
 fn worker_thread<F>(
     worker_id: usize,
@@ -169,5 +196,25 @@ fn main() {
         true,
         do_work_with_box,
         "Box Allocation",
+    );
+    println!();
+    // Test 4: Implement lock
+    println!("=== Test 4: One lock ===");
+    run_experiment(
+        cpu_count,
+        iterations_per_thread,
+        true,
+        do_work_with_lock,
+        "One Lock",
+    );
+    println!();
+    // Test 5: Implement Branch
+    println!("=== Test 4: One Branch ===");
+    run_experiment(
+        cpu_count,
+        iterations_per_thread,
+        true,
+        do_work_with_branch,
+        "One Branch",
     );
 }
