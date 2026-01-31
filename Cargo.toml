@@ -1,0 +1,21 @@
+[workspace]
+members = [
+    "queues",
+    "threading",
+    "latency",
+    "networking",
+    "hft-primitives"
+]
+resolver = "2"
+
+[workspace.dependencies]
+libc = "0.2"
+criterion = "0.5"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.bench]
+inherits = "release"
