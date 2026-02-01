@@ -105,13 +105,13 @@ mod tests {
     fn test_basic_operations() {
         let counter = AtomicCounter::new();
         assert_eq!(counter.get(), 0);
-        
+
         counter.increment();
         assert_eq!(counter.get(), 1);
-        
+
         counter.add(5);
         assert_eq!(counter.get(), 6);
-        
+
         counter.reset();
         assert_eq!(counter.get(), 0);
     }

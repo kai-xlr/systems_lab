@@ -1,6 +1,6 @@
 use std::cell::UnsafeCell;
 use std::mem;
-use std::net::{UdpSocket, SocketAddr};
+use std::net::{SocketAddr, UdpSocket};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread;
@@ -112,7 +112,9 @@ impl<T> LockFreeRingBuffer<T> {
 
 // Convert MarketMessage to bytes safely
 fn message_to_bytes(message: &MarketMessage) -> [u8; 29] {
-    unsafe { mem::transmute_copy::<[u8; 29], _>(&*(message as *const MarketMessage as *const [u8; 29])) }
+    unsafe {
+        mem::transmute_copy::<[u8; 29], _>(&*(message as *const MarketMessage as *const [u8; 29]))
+    }
 }
 
 // UDP receiver thread
@@ -136,7 +138,11 @@ fn udp_receiver_thread(
                 if len == mem::size_of::<MarketMessage>() {
                     // Parse bytes to MarketMessage safely
                     let recv_slice = &recv_buf[..mem::size_of::<MarketMessage>()];
-                    let message = unsafe { mem::transmute_copy::<[u8; 29], _>(&*(recv_slice.as_ptr() as *const [u8; 29])) };
+                    let message = unsafe {
+                        mem::transmute_copy::<[u8; 29], _>(
+                            &*(recv_slice.as_ptr() as *const [u8; 29]),
+                        )
+                    };
 
                     // Push to lock-free queue
                     if let Err(_) = queue.send(message) {

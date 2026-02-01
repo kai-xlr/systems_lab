@@ -65,7 +65,7 @@ impl<T> LockFreeRingBuffer<T> {
         }
     }
 
-    /// Attempts to send an item into the buffer.
+    /// Attempts to send an item into the buffer (MPSC safe).
     ///
     /// Returns `Err(item)` if the buffer is full.
     ///
@@ -81,20 +81,33 @@ impl<T> LockFreeRingBuffer<T> {
     /// assert!(queue.send(4).is_err());
     /// ```
     pub fn send(&self, item: T) -> Result<(), T> {
-        let current_head = self.head.load(Ordering::Relaxed);
-        let next_head = (current_head + 1) & self.mask;
-        let current_tail = self.tail.load(Ordering::Acquire);
-
-        if next_head == current_tail {
-            return Err(item); // Buffer full
+        loop {
+            let current_head = self.head.load(Ordering::Relaxed);
+            let next_head = (current_head + 1) & self.mask;
+            let current_tail = self.tail.load(Ordering::Acquire);
+            if next_head == current_tail {
+                return Err(item); // Buffer full
+            }
+            match self.head.compare_exchange_weak(
+                current_head, // Use the variable you declared
+                next_head,    // Use the variable you declared
+                Ordering::Release,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => {
+                    // CAS succeeded - now write to buffer slot
+                    let cell = &self.buffer[current_head]; // current_head is in scope
+                    unsafe {
+                        *cell.get() = Some(item);
+                    }
+                    return Ok(()); // Exit successfully
+                }
+                Err(_) => {
+                    // CAS failed - another thread claimed this slot
+                    continue; // Loop again
+                }
+            }
         }
-
-        let cell = &self.buffer[current_head];
-        unsafe {
-            *cell.get() = Some(item);
-        }
-        self.head.store(next_head, Ordering::Release);
-        Ok(())
     }
 
     /// Attempts to receive an item from the buffer.
@@ -153,10 +166,10 @@ mod tests {
     fn test_basic_operations() {
         let queue = LockFreeRingBuffer::new(4);
         assert_eq!(queue.receive(), None);
-        
+
         queue.send(1).unwrap();
         queue.send(2).unwrap();
-        
+
         assert_eq!(queue.receive(), Some(1));
         assert_eq!(queue.receive(), Some(2));
         assert_eq!(queue.receive(), None);
