@@ -1,15 +1,15 @@
-//! Lock-free Single Producer Single Consumer (SPSC) ring buffer.
+//! Lock-free Multiple Producer Single Consumer (MPSC) ring buffer.
 //!
 //! Optimized for high-frequency trading workloads with predictable latency.
 
 use std::cell::UnsafeCell;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-/// Lock-free SPSC ring buffer optimized for HFT workloads.
+/// Lock-free MPSC ring buffer optimized for HFT workloads.
 ///
 /// # Safety
-/// - **Single producer and single consumer only**
-/// - Producer must not wrap around to consumer position
+/// - **Multiple producers and single consumer**
+/// - Producers must not wrap around to consumer position
 /// - Size is rounded up to next power of 2 for fast modulo
 ///
 /// # Examples
@@ -22,7 +22,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 /// ```
 ///
 /// # Performance Characteristics
-/// - Send: O(1) - Single atomic store with Release ordering
+/// - Send: O(1) - CAS operation with Release ordering (may retry under contention)
 /// - Receive: O(1) - Single atomic load with Acquire ordering
 /// - No allocations after initialization
 /// - Cache-line aligned for minimal false sharing
@@ -179,6 +179,40 @@ mod tests {
     fn test_capacity() {
         let queue = LockFreeRingBuffer::<i32>::new(100);
         assert_eq!(queue.capacity(), 128); // Next power of 2
+    }
+
+    #[test]
+    fn test_mpsc() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let queue = Arc::new(LockFreeRingBuffer::new(4096)); // Large enough buffer
+        let mut handles = vec![];
+
+        // 4 producers
+        for i in 0..4 {
+            let q = Arc::clone(&queue);
+            handles.push(thread::spawn(move || {
+                for j in 0..1000 {
+                    // Handle buffer full - in production HFT you'd use backpressure
+                    while q.send(i * 1000 + j).is_err() {
+                        std::thread::yield_now();
+                    }
+                }
+            }));
+        }
+
+        // Wait for all producers to finish
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        // Count all received items
+        let mut count = 0;
+        while queue.receive().is_some() {
+            count += 1;
+        }
+        assert_eq!(count, 4000);
     }
 
     #[test]
